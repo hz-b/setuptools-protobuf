@@ -8,8 +8,10 @@ import zipfile
 from setuptools import Command
 from setuptools.dist import Distribution
 from setuptools.errors import ExecError, PlatformError  # type: ignore
+import setuptools
 
-__version__ = (0, 1, 13)
+_log = setuptools.distutils.log
+__version__ = (0, 1, 15)
 
 
 def has_protobuf(command):
@@ -17,7 +19,9 @@ def has_protobuf(command):
 
 
 class build_protobuf(Command):
-    user_options = [('protoc', None, 'path of compiler protoc')]
+    user_options = [
+        ('protoc', None, 'path of compiler protoc'),
+    ]
     description = 'build .proto files'
 
     def initialize_options(self):
@@ -33,8 +37,13 @@ class build_protobuf(Command):
                 "Unable to find protobuf compiler %s"
                 % (self.protoc or 'protoc'))
 
+        self.python = False
+        self.cpp = False
+
     def run(self):
+        self.announce("Running proto file", _log.WARN)
         for protobuf in getattr(self.distribution, 'protobufs', []):
+            # todo replace with newer_group?
             source_mtime = os.path.getmtime(protobuf.path)
             for output in protobuf.outputs():
                 try:
@@ -45,8 +54,10 @@ class build_protobuf(Command):
                     if output_mtime < source_mtime:
                         break
             else:
+                self.announce("No need to regeneate proto files", _log.WARN)
                 continue
-            command = [self.protoc, '--python_out=.']
+            #: todo only add cpp out if request
+            command = [self.protoc, '--python_out=.', '--cpp_out=.']
             if protobuf.mypy:
                 command.append('--mypy_out=.')
             command.append(protobuf.path)
@@ -124,7 +135,11 @@ class Protobuf:
         self.mypy = mypy
 
     def outputs(self):
-        return [self.path[:-len('.proto')] + '_pb2.py']
+        prefix = self.path[:-len('.proto')]
+        return [
+            prefix + '_pb2.py',
+            prefix + '_pb.cc',
+        ]
 
 
 def protobufs(dist, keyword, value):
