@@ -128,18 +128,19 @@ def pyprojecttoml_config(dist: Distribution) -> None:
 
 class Protobuf:
 
-    def __init__(self, path, mypy=None):
+    def __init__(self, path, mypy=None, cpp=False):
         self.path = path
         if mypy is None:
             mypy = find_executable('protoc-gen-mypy') is not None
         self.mypy = mypy
+        self.cpp = cpp
 
     def outputs(self):
         prefix = self.path[:-len('.proto')]
-        return [
-            prefix + '_pb2.py',
-            prefix + '_pb.cc',
-        ]
+        outputs = [prefix + '_pb2.py']
+        if self.cpp:
+            outputs += [prefix + '_pb.cc']
+        return outputs
 
 
 def protobufs(dist, keyword, value):
